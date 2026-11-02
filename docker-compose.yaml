@@ -108,7 +108,7 @@ services:
     image: clickhouse/clickhouse-server:25.8-alpine
     networks:
       - ml-scorer
-    environment:
+    environment: &clickhouse_env
       CLICKHOUSE_USER: homework
       CLICKHOUSE_PASSWORD: boba_aboba
     volumes:
@@ -117,6 +117,21 @@ services:
       test: ["CMD", "clickhouse-client", "--user", "homework", "--password", "boba_aboba", "--query", "SELECT 1"]
       interval: 5s
       retries: 20
+
+  dbt:
+    profiles: [dbt]
+    build: ./dbt
+    networks:
+      - ml-scorer
+    environment:
+      <<: *clickhouse_env
+      DBT_PROFILES_DIR: /work
+    volumes:
+      - ./dbt:/work
+      - ./:/repo
+    depends_on:
+      clickhouse:
+        condition: service_healthy
 
   clickhouse-init:
     image: clickhouse/clickhouse-server:25.8-alpine

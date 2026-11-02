@@ -1,0 +1,9 @@
+[sqlfluff]
+dialect = clickhouse
+templater = dbt
+rules = LT01,LT02,CP01
+encoding = utf-8
+
+[sqlfluff:templater:dbt]
+project_dir = .
+profiles_dir = .

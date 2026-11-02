@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: transactions_db
+    schema: transactions_db
+    description: Labeled transactions from train.csv
+    tables:
+      - name: transactions
+        description: source data for analytics

@@ -24,3 +24,5 @@ docker-compose exec -T clickhouse clickhouse-client --user homework --password b
 ```
 
 Повторная загрузка CSV добавит те же строки ещё раз. Остановка: `docker-compose stop`.
+
+Домашка по dbt и инструкция запуска: [dbt/README.md](dbt/README.md).

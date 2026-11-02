@@ -1,0 +1,182 @@
+version: 2
+
+models:
+  - name: stg_transactions
+    description: Cleaned transactions
+    columns:
+      - name: transaction_time
+        description: Transaction date and time
+        data_tests: [not_null]
+      - name: transaction_date
+        description: Transaction date
+        data_tests: [not_null]
+      - name: transaction_month
+        description: First day of the transaction month
+      - name: day_of_week
+        description: Day of week, 1 is Monday
+      - name: cat_id
+        description: Category ID
+        data_tests: [not_null]
+      - name: us_state
+        description: US state code
+        data_tests: [not_null]
+      - name: amount
+        description: Transaction amount
+      - name: amount_bucket
+        description: Large if amount is 1000 or more, regular otherwise
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['large', 'regular']
+      - name: target
+        description: Fraud flag (0 or 1)
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+  - name: mart_daily_state_metrics
+    description: Daily transaction stats by state
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [transaction_date, us_state]
+    columns:
+      - name: transaction_date
+        description: Transaction date
+        data_tests: [not_null]
+      - name: us_state
+        description: US state code
+        data_tests: [not_null]
+      - name: transaction_count
+        description: Number of transactions
+      - name: total_amount
+        description: Total transaction amount
+      - name: average_amount
+        description: Average transaction amount
+      - name: p95_amount
+        description: Approximate 95th percentile of amount
+      - name: large_transaction_share
+        description: Share of transactions with amount of 1000 or more
+
+  - name: mart_fraud_by_category
+    description: Fraud stats by category
+    columns:
+      - name: cat_id
+        description: Category ID
+        data_tests: [not_null, unique]
+      - name: transaction_count
+        description: Number of transactions
+      - name: fraud_count
+        description: Number of fraudulent transactions
+      - name: fraud_rate
+        description: Fraud rate in percent
+      - name: total_amount
+        description: Total transaction amount
+      - name: fraud_amount
+        description: Total fraud amount
+
+  - name: mart_fraud_by_state
+    description: Fraud stats by state
+    columns:
+      - name: us_state
+        description: US state code
+        data_tests: [not_null, unique]
+      - name: transaction_count
+        description: Number of transactions
+      - name: fraud_count
+        description: Number of fraudulent transactions
+      - name: fraud_rate
+        description: Fraud rate in percent
+      - name: customer_count
+        description: Number of distinct names and addresses
+      - name: merchant_count
+        description: Number of merchants
+      - name: total_amount
+        description: Total transaction amount
+      - name: fraud_amount
+        description: Total fraud amount
+
+  - name: mart_customer_risk_profile
+    description: Customer fraud risk based on past transactions
+    columns:
+      - name: customer_id
+        description: Hash of name and address
+        data_tests: [not_null, unique]
+      - name: transaction_count
+        description: Number of transactions
+      - name: fraud_count
+        description: Number of fraudulent transactions
+      - name: fraud_rate
+        description: Fraud rate in percent
+      - name: total_amount
+        description: Total transaction amount
+      - name: average_amount
+        description: Average transaction amount
+      - name: first_transaction_time
+        description: First transaction time
+      - name: last_transaction_time
+        description: Last transaction time
+      - name: risk_level
+        description: HIGH, MEDIUM or LOW risk
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['HIGH', 'MEDIUM', 'LOW']
+
+  - name: mart_hourly_fraud_pattern
+    description: Fraud stats by day of week and hour
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [day_of_week, transaction_hour]
+    columns:
+      - name: day_of_week
+        description: Day of week, 1 is Monday
+        data_tests: [not_null]
+      - name: transaction_hour
+        description: Hour from 0 to 23
+        data_tests: [not_null]
+      - name: transaction_count
+        description: Number of transactions
+      - name: fraud_count
+        description: Number of fraudulent transactions
+      - name: fraud_rate
+        description: Fraud rate in percent
+
+  - name: mart_merchant_analytics
+    description: Transaction and fraud stats by merchant
+    columns:
+      - name: merch
+        description: Merchant name
+        data_tests: [not_null, unique]
+      - name: transaction_count
+        description: Number of transactions
+      - name: turnover
+        description: Total transaction amount
+      - name: fraud_count
+        description: Number of fraudulent transactions
+      - name: fraud_rate
+        description: Fraud rate in percent
+      - name: suspicious_flag
+        description: 1 if fraud rate is at least 2 percent
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+unit_tests:
+  - name: merchant_analytics_example
+    model: mart_merchant_analytics
+    given:
+      - input: ref('stg_transactions')
+        rows:
+          - {merch: A, amount: 10, target: 1}
+          - {merch: A, amount: 20, target: 0}
+          - {merch: B, amount: 5, target: 0}
+    expect:
+      rows:
+        - {merch: A, transaction_count: 2, turnover: 30, fraud_count: 1, fraud_rate: 50, suspicious_flag: 1}
+        - {merch: B, transaction_count: 1, turnover: 5, fraud_count: 0, fraud_rate: 0, suspicious_flag: 0}
